@@ -1,83 +1,45 @@
-"""
-This module takes care of starting the API Server, Loading the DB and Adding the endpoints
-"""
-from flask import request, jsonify, Blueprint, current_app
-from api.models import db, User
-from api.utils import APIException
-from flask_bcrypt import Bcrypt
-from flask_cors import CORS
-import jwt
-import datetime
+from flask import Flask, request, jsonify, Blueprint
+from api.models import User, db
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from flask_cors import CORS, cross_origin
 
 api = Blueprint('api', __name__)
-bcrypt = Bcrypt()
-CORS(api)  # Allow CORS
+CORS(api, origins="https://literate-rotary-phone-5gv5xpv7q5grf7x95-3000.app.github.dev", 
+     supports_credentials=True)
 
-# Signup route
-@api.route('/signup', methods=['POST'])
+# User Signup
+@api.route('/signup', methods=['POST', 'OPTIONS'])
+@cross_origin(
+              methods=["POST", "OPTIONS"], 
+              headers=["Content-Type", "Authorization"])
 def signup():
-    data = request.get_json()  
-    email = data.get('email')
-    password = data.get('password')
+    if request.method == 'OPTIONS':
+        return '', 200  
 
-    # Validate data
-    if not email or not password:
-        return jsonify({'message': 'Email and password are required!'}), 400
+    body = request.get_json()
+    user = User.query.filter_by(email=body["email"]).first()
+    if user is None:
+        user = User(email=body["email"], password=body["password"], is_active=True)
+        db.session.add(user)
+        db.session.commit()
+        return jsonify({"msg": "User created!"}), 200
+    return jsonify({"msg": "This email address it's already asociated to un account"}), 400
 
-    # Check if user already exists
-    user = User.query.filter_by(email=email).first()
-    if user:
-        return jsonify({'message': 'User already exists'}), 400
 
-    # Hash password and save new user
-    hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
-    new_user = User(email=email, password=hashed_password)
-    db.session.add(new_user)
-    db.session.commit()
-    return jsonify({'message': 'User created successfully'}), 201
-
-# Login route
+# User Login
 @api.route('/login', methods=['POST'])
 def login():
-    data = request.get_json() 
-    email = data.get('email')
-    password = data.get('password')
-
-    # Validate data
-    if not email or not password:
-        return jsonify({'message': 'Email and password are required!'}), 400
-
-    # Check if the user exists
+    email = request.json.get("email")
+    password = request.json.get("password")
     user = User.query.filter_by(email=email).first()
-    if not user:
-        return jsonify({'message': 'User not found'}), 404
+    if user and user.password == password:
+        access_token = create_access_token(identity=email)
+        return jsonify(access_token=access_token), 200
+    return jsonify({"msg": "Incorrect email or password"}), 401
 
-    # Verify password
-    if bcrypt.check_password_hash(user.password, password):
-        # Generate JWT token
-        token = jwt.encode({
-            'email': user.email,
-            'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=1)  # Token expiration
-        }, current_app.config['SECRET_KEY'], algorithm='HS256')
-
-        return jsonify({'token': token}), 200
-    else:
-        return jsonify({'message': 'Incorrect password'}), 401
-
-# Private route (token validation)
+# Protected Route
 @api.route('/private', methods=['GET'])
-def private():
-    token = request.headers.get('Authorization')
-
-    if not token:
-        return jsonify({'message': 'Token is missing!'}), 401
-
-    try:
-        # Decode the token
-        jwt.decode(token, current_app.config['SECRET_KEY'], algorithms=['HS256'])
-        return jsonify({'message': 'Access granted'}), 200
-    except jwt.ExpiredSignatureError:
-        return jsonify({'message': 'Token expired'}), 401
-    except jwt.InvalidTokenError:
-        return jsonify({'message': 'Invalid token'}), 401
-
+@jwt_required()
+def protected():
+    current_user = get_jwt_identity()
+    return jsonify(logged_in_as=current_user), 200

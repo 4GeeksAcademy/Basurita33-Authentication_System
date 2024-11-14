@@ -1,22 +1,26 @@
-import React, { useEffect } from 'react';
-import { useHistory } from 'react-router-dom';
+import React, { useEffect } from "react";
+import { useStore } from "../store/appContext";
 
-const Private = () => {
-  const history = useHistory();
+export const Private = () => {
+    const { store, actions } = useStore();
 
-  useEffect(() => {
-    const token = sessionStorage.getItem('token');
-    if (!token) {
-      history.push('/login');
-    }
-  }, [history]);
+    useEffect(() => {
+        if (!store.authentication) {
+            window.location.href = "/login"; 
+        }
+    }, [store.authentication]);
 
-  return (
-    <div>
-      <h2>Private Dashboard</h2>
-      <p>Only for the eyes of a few.</p>
-    </div>
-  );
+    return (
+        <div>
+            <h1>Private Page</h1>
+            {store.authentication ? (
+                <div>
+                    <p>Welcome, you are logged in!</p>
+                    <button onClick={actions.logout}>Logout</button>
+                </div>
+            ) : (
+                <p>Redirecting...</p>
+            )}
+        </div>
+    );
 };
-
-export default Private;

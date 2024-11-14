@@ -1,11 +1,11 @@
-import { useHistory } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 const Logout = () => {
-  const history = useHistory();
+  const navigate = useNavigate();
 
   const handleLogout = () => {
     sessionStorage.removeItem('token');
-    history.push('/login');
+    navigate('/login');
   };
 
   return (

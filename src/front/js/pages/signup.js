@@ -1,38 +1,41 @@
-import React, { useState } from 'react';
-import { useHistory } from 'react-router-dom';
+import React, { useState } from "react";
+import { useStore } from "../store/appContext";
+import { useNavigate } from "react-router-dom";
 
-const Signup = () => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const history = useHistory();
+export const Signup = () => {
+    const { actions } = useStore();
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [message, setMessage] = useState("");
+    const navigate = useNavigate();
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    try {
-      const response = await fetch('http://localhost:5000/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
+    const handleSignup = async () => {
+        console.log("Attempting signup with:", email, password);
+        const result = await actions.signup(email, password);
+        if (result.success) {
+            navigate("/api/login");
+        } else {
+            setMessage(result.message);
+        }
+    };
 
-      if (response.ok) {
-        history.push('/login');
-      }
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  return (
-    <div>
-      <h2>Signup</h2>
-      <form onSubmit={handleSubmit}>
-        <input type="email" placeholder="Email" value={email} onChange={(event) => setEmail(event.target.value)} required />
-        <input type="password" placeholder="Password" value={password} onChange={(event) => setPassword(event.target.value)} required />
-        <button type="submit">Sign Up</button>
-      </form>
-    </div>
-  );
+    return (
+        <div>
+            <h1>Sign Up</h1>
+            <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email"
+            />
+            <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+            />
+            <button onClick={handleSignup}>Sign Up</button>
+            {message && <p>{message}</p>}
+        </div>
+    );
 };
-
-export default Signup;
